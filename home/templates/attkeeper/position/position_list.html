@@ -1,0 +1,13 @@
+{% for p in positions  %}
+    <tr>
+        <td>{{p.position_name}}</td>
+        <td>
+            <button class="btn btn-primary btn-sm float js-edit-position" data-url="{% url "edit_position" p.pk%}">
+                Edit
+            </button>
+            <button class="btn btn-sm btn-danger js-delete-position" data-url="{% url "delete_position" p.pk%}">
+                Delete
+            </button>
+        </td>
+    </tr>
+{% endfor %}

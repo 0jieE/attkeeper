@@ -1,0 +1,12 @@
+asgiref==3.8.1
+crispy-bootstrap4==2024.1
+Django==5.0.6
+django-admin-adminlte==1.0.5
+django-crispy-forms==2.2
+gunicorn==21.2.0
+packaging==24.1
+pillow==10.4.0
+python-dotenv==1.0.0
+sqlparse==0.5.0
+tzdata==2024.1
+whitenoise==6.5.0

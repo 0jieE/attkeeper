@@ -1,0 +1,318 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% load custom_filters %}
+{% load crispy_forms_tags %}
+{% block title %} Attendance Record {% endblock title %}
+{% block extrastyle %}
+<!-- DataTables -->
+<link rel="stylesheet" href="{% static 'plugins/datatables-bs4/css/dataTables.bootstrap4.min.css' %}">
+<link rel="stylesheet" href="{% static 'plugins/datatables-responsive/css/responsive.bootstrap4.min.css' %}">
+<link rel="stylesheet" href="{% static 'plugins/datatables-buttons/css/buttons.bootstrap4.min.css' %}">
+{% endblock extrastyle %}
+{% block bodyclass %} hold-transition sidebar-mini {% endblock bodyclass %}
+{% block content %}
+<div class="content-wrapper">
+    <!-- Content Header (Page header) -->
+    <section class="content-header">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h3>Biometric Records</h3>
+                </div>
+                <div class="col-sm-6">
+                    <!--<button type="button" class="btn btn-sm btn-danger float-right js-delete-record" data-toggle="modal" data-target="#delete-record">Delete all</button>-->
+                    <button type="button" class="btn btn-sm btn-primary float-right js-record" data-toggle="modal" data-target="#new-record" data-url="{% url 'upload' %}">upload file</button>
+                </div>
+            </div>
+    </section>
+
+    <section class="content">
+        <div class="container-fluid">
+            <div class="card p-3">
+                <form id="filter-form" method="get">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label for="branches-dropdown" class="form-label">Select Branch</label>
+                            <select id="branches-dropdown" name="branch" class="form-control" onchange="this.form.submit()">
+                                <option value="all" {% if selected_branch_id == "all" %}selected{% endif %}>All Branch Members</option>
+                                {% for branch in branches %}
+                                    <option value="{{ branch.id }}" {% if branch.id|stringformat:"s" == selected_branch_id|stringformat:"s" %}selected{% endif %}>
+                                        {{ branch.branch_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="members-dropdown" class="form-label">Select Member</label>
+                            <select id="members-dropdown" name="member" class="form-control" onchange="this.form.submit()">
+                                <option value="">All Branch Members</option>
+                                {% for member in members %}
+                                    <option value="{{ member.id }}" {% if member.id|stringformat:"s" == selected_member_id|stringformat:"s" %}selected{% endif %}>
+                                        {{ member.first_name|default_if_none:""  }} {{ member.middle_name|default_if_none:""  }} {{ member.last_name|default_if_none:""  }} {{ member.ext_name|default_if_none:"" }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label for="year" class="form-label">Year</label>
+                            <select id="year" name="year" class="form-control" required onchange="this.form.submit()">
+                                {% for year in years %}
+                                    <option value="{{ year }}" {% if year|stringformat:"s" == selected_year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label for="month" class="form-label">Month</label>
+                            <select id="month" name="month" class="form-control" required onchange="this.form.submit()">
+                                {% for month in months %}
+                                    <option value="{{ month.num }}" {% if month.num|stringformat:"s" == selected_month|stringformat:"s" %}selected{% endif %}>{{ month.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-1 mb-3">
+                            <label for="start-day" class="form-label">Start Day</label>
+                            <select id="start-day" name="start_day" class="form-control" required onchange="this.form.submit()">
+                                {% for day in days %}
+                                    <option value="{{ day }}" {% if day|stringformat:"s" == selected_start_day|stringformat:"s" %}selected{% endif %}>{{ day }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-1 mb-3">
+                            <label for="end-day" class="form-label">End Day</label>
+                            <select id="end-day" name="end_day" class="form-control" required onchange="this.form.submit()">
+                                {% for day in days %}
+                                    <option value="{{ day }}" {% if day|stringformat:"s" == selected_end_day|stringformat:"s" %}selected{% endif %}>{{ day }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </form>                
+            </div>
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header p-2">
+                            <ul class="nav nav-pills">
+                                <li class="nav-item">
+                                    <a class="nav-link active" href="#mwr" data-toggle="tab">Members with Records</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#mwor" data-toggle="tab">Members w/out Records</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#rwom" data-toggle="tab">Record w/out Members</a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-body p-10">
+                            <div class="tab-content">
+                                <div class="active tab-pane" id="mwr">
+                                    {% for member in members %}
+                                    <h5>{{ member.first_name|default_if_none:""  }} {{ member.middle_name|default_if_none:""  }} {{ member.last_name|default_if_none:""  }} {{ member.ext_name|default_if_none:"" }}</h5>
+                                    <table id="records-list-{{ member.id }}" class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th style="text-align: center;">Date</th>
+                                                <th style="text-align: center;">Time</th>
+                                                <th style="text-align: center;">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% include "attkeeper/attendance_record/record_list.html" %}
+                                        </tbody>
+                                    </table>
+                                    <br>
+                                    {% endfor %}
+                                </div>
+                                <div class="tab-pane" id="mwor">
+                                    <table id="mwr-list" class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Biometric ID</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for member in members_without_attendance %}
+                                                <tr>
+                                                    <td >{{ member.first_name|default_if_none:""  }} {{ member.middle_name|default_if_none:""  }} {{ member.last_name|default_if_none:""  }} {{ member.ext_name|default_if_none:"" }}</td>
+                                                    <td >{{ member.biometric_id }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>   
+                                    </table>
+                                </div>
+                                <div class="tab-pane" id="rwom">
+                                    <table id="rwm-list" class="table table-striped table-hover">
+                                        <thead>
+                                            <tr>
+                                                <tr>
+                                                    <th style="text-align: center;">Date</th>
+                                                    <th style="text-align: center;">Biometric ID</th>
+                                                    <th style="text-align: center;">Time</th>
+                                                    <th style="text-align: center;">Status</th>
+                                                </tr>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for record in attendance_without_members %}
+                                                <tr>
+                                                    <td style="text-align: center;">{{ record.date|date:"j" }}</td>
+                                                    <td style="text-align: center;">{{ record.user_id }}</td>
+                                                    <td style="text-align: center;">{{ record.time }}</td>
+                                                    <td style="text-align: center;">{{ record.status }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>   
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="modal fade" id="new-record">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            </div>
+            <!-- /.modal-content -->
+        </div>
+        <!-- /.modal-dialog -->
+    </div>
+    <div class="modal fade" id="delete-record">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post" action="" class="">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h4 class="modal-title">Delete DTR</h4>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p> are you sure you want to delete all data?
+                    </div>
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                        <button type="submit" name="deleteRecord" class="btn btn-primary"><b>yes</b></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- /.modal-dialog -->
+    </div>
+    <div class="modal fade" id="progress-modal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Processing Data, please wait...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock content %}
+{% block extra_scripts %}
+<!-- DataTables  & Plugins -->
+<script src="{% static 'plugins/datatables/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-responsive/js/responsive.bootstrap4.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/dataTables.buttons.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.bootstrap4.min.js' %}"></script>
+<script src="{% static 'plugins/jszip/jszip.min.js' %}"></script>
+<script src="{% static 'plugins/pdfmake/pdfmake.min.js' %}"></script>
+<script src="{% static 'plugins/pdfmake/vfs_fonts.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.html5.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.print.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.colVis.min.js' %}"></script>
+<!-- Page specific script -->
+<script>
+    $(function() {
+        var loadForm = function() {
+            var btn = $(this);
+            $.ajax({
+                url: btn.attr('data-url'),
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function() {
+                    $('#new-record').modal('show');
+                },
+                success: function(data) {
+                    $('#new-record .modal-content').html(data.html_form);
+                }
+            });
+        };
+    
+        var saveForm = function() {
+            var form = $(this);
+            var formData = new FormData(form[0]);  // Use FormData for file upload
+            $.ajax({
+                url: form.attr('action'),
+                data: formData,
+                type: form.attr('method'),
+                dataType: 'json',
+                processData: false,  // Prevent jQuery from automatically transforming the data into a query string
+                contentType: false,  // Let the browser set the content type, including the boundary for multipart data
+                beforeSend: function() {
+                    $('#new-record').modal('hide');  // Hide the new-record modal
+                    $('#progress-modal').modal('show');  // Show the progress modal
+                },
+                success: function(data) {
+                    if (data.form_is_valid) {
+                        $('#records-list tbody').html(data.record_list);
+                    } else {
+                        $('#new-record .modal-content').html(data.html_form);
+                        $('#new-record').modal('show');  // Show the new-record modal again if the form is not valid
+                    }
+                    $('#progress-modal').modal('hide');  // Hide the progress modal
+                },
+                error: function() {
+                    $('#progress-modal').modal('hide');  // Hide the progress modal in case of an error
+                    $('#new-record').modal('show');  // Show the new-record modal again in case of an error
+                }
+            });
+            return false;
+        };
+    
+        // upload
+        $('.js-record').click(loadForm);
+        $('#new-record').on('submit', '.js-record-create-form', saveForm);
+
+        $(function () {
+            $("#mwr-list").DataTable({
+              "responsive": true, "lengthChange": true, "autoWidth": false,
+              "buttons": ["csv", "excel", "pdf", "print"]
+            }).buttons().container().appendTo('#mwr-list_wrapper .col-md-6:eq(0)');
+
+            $("#rwm-list").DataTable({
+                "responsive": true, "lengthChange": true, "autoWidth": false,
+                "buttons": ["csv", "excel", "pdf", "print"]
+              }).buttons().container().appendTo('#rwm-list_wrapper .col-md-6:eq(0)');
+        });
+    });
+
+    $(document).ready(function() {
+        $('table[id^="records-list-"]').each(function() {
+            var tableId = $(this).attr('id');
+            var table = $(this).DataTable({
+                "responsive": true,
+                "lengthChange": true,
+                "autoWidth": false,
+                "buttons": ["csv", "excel", "pdf", "print"]
+            });
+    
+            table.buttons().container().appendTo('#' + tableId + '_wrapper .col-md-6:eq(0)');
+        });
+    });
+    
+    
+</script>
+
+{% endblock extra_scripts %}

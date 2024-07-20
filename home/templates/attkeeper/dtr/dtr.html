@@ -1,0 +1,707 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% load custom_filters %}
+{% block title %} DTR Management {% endblock title %}
+{% block extrastyle %}
+<!-- DataTables -->
+<link rel="stylesheet" href="{% static 'plugins/datatables-bs4/css/dataTables.bootstrap4.min.css' %}">
+<link rel="stylesheet" href="{% static 'plugins/datatables-responsive/css/responsive.bootstrap4.min.css' %}">
+<link rel="stylesheet" href="{% static 'plugins/datatables-buttons/css/buttons.bootstrap4.min.css' %}">
+<link href="/static/css/select2.min.css" rel="stylesheet" />
+
+<style>
+    .align-save-btn {
+        margin-bottom: 7px; /* Adjust this value as needed */
+    }
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 65px;
+        height: 34px;
+    }
+    
+    /* Hide default HTML checkbox */
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    /* The slider */
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+    }
+    
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+    }
+    
+    /* When the checkbox is checked */
+    input:checked + .slider {
+        background-color: #00ffff;
+    }
+    
+    /* When the checkbox is checked - move the slider */
+    input:checked + .slider:before {
+        transform: translateX(26px);
+    }
+    
+    /* Rounded sliders */
+    .slider.round {
+        border-radius: 34px;
+    }
+    
+    .slider.round:before {
+        border-radius: 50%;
+    }
+    
+    .highlight-empty {
+        background-color: white;
+    }
+    
+    .highlight-empty-active {
+        background-color: #00ffff;
+    }
+    .paper {
+        background: white;
+        margin: 20px auto;
+        padding: 20px;
+        width: 210mm; /* Default to A4 width */
+        height: auto; /* Let the height adjust based on content */
+        min-height: 297mm; /* Minimum height to ensure at least one page */
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        transition: width 0.3s, height 0.3s; /* Smooth transition for size changes */
+        page-break-after: always; /* Ensure a new page after each .paper */
+    }
+
+    /* print.css */
+
+    @page {
+        size: A4; /* Adjust the size as needed */
+        margin: 1cm; /* Adjust the margin as needed */
+    }
+
+    @media print {
+        .print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+        .no-print {
+            display: none !important;
+        }
+    }
+
+    .paper .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1cm;
+    }
+
+    .paper-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .paper-table th, .paper-table td {
+        border: 1px solid #000;
+        padding: 0.2cm;
+        text-align: center;
+    }
+
+    .header-container img {
+        max-width: 150px;
+        max-height: 40px;
+    }
+
+    .print-button, .print-toggle {
+        margin: 10px 0;
+        padding: 10px 20px;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    .print-button:hover {
+        background-color: #0056b3;
+    }
+
+    .highlighted {
+        background-color: #7f9dc0; /* Light grey background */
+        color: #333; /* Darker text color for contrast */
+        border: 1px solid #666; /* Optional: adds a subtle border */
+    }
+    .text-red {
+        color: red;
+    }
+    .text-green {
+        color: green;
+    }
+</style>
+
+
+
+
+{% endblock extrastyle %}
+{% block bodyclass %} hold-transition sidebar-mini sidebar-collapse {% endblock bodyclass %}
+{% block content %}
+<div class="content-wrapper">
+    <!-- Content Header (Page header) -->
+    <section class="content-header card_1">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-6">
+                    <h3>DTR Management</h3>
+                </div>
+                <div class="col-6">  
+                   <!--  <button type="button" class="btn btn-sm btn-danger float-right js-delete" data-toggle="modal" data-target="new-dtr" data-url="{% url "delete-dtr" %}">delete all data</button> -->
+                    <button type="button" class="btn btn-sm btn-primary float-right js-generate" data-toggle="modal" data-target="#new-dtr" data-url="{% url 'generate_dtr' %}">Generate new records</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="content">
+        <div class="container-fluid">
+            <div class="card p-3 filter">
+                <form id="filter-form" method="get">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label for="branches-dropdown" class="form-label">Select Branch</label>
+                            <select id="branches-dropdown" name="branch" class="form-control" onchange="this.form.submit()">
+                                <option value="all" {% if selected_branch_id == "all" %}selected{% endif %}>All Branch</option>
+                                {% for branch in branches %}
+                                    <option value="{{ branch.id }}" {% if branch.id|stringformat:"s" == selected_branch_id|stringformat:"s" %}selected{% endif %}>
+                                        {{ branch.branch_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="members-dropdown" class="form-label">Select Member</label>
+                            <select id="members-dropdown" name="member" class="form-control" onchange="this.form.submit()">
+                                <option value="">All Members</option>
+                                {% for member in members %}
+                                    <option value="{{ member.id }}" {% if member.id|stringformat:"s" == selected_member_id|stringformat:"s" %}selected{% endif %}>
+                                        {{ member.first_name }} {{ member.middle_name }} {{ member.last_name }} {{ member.ext_name|default_if_none:"" }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label for="year" class="form-label">Year</label>
+                            <select id="year" name="year" class="form-control" required onchange="this.form.submit()">
+                                {% for year in years %}
+                                    <option value="{{ year }}" {% if year|stringformat:"s" == selected_year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label for="month" class="form-label">Month</label>
+                            <select id="month" name="month" class="form-control" required onchange="this.form.submit()">
+                                {% for month in months %}
+                                    <option value="{{ month.num }}" {% if month.num|stringformat:"s" == selected_month|stringformat:"s" %}selected{% endif %}>{{ month.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-1 mb-3">
+                            <label for="start-day" class="form-label">Start Day</label>
+                            <select id="start-day" name="start_day" class="form-control" required onchange="this.form.submit()">
+                                {% for day in days %}
+                                    <option value="{{ day }}" {% if day|stringformat:"s" == selected_start_day|stringformat:"s" %}selected{% endif %}>{{ day }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-1 mb-3">
+                            <label for="end-day" class="form-label">End Day</label>
+                            <select id="end-day" name="end_day" class="form-control" required onchange="this.form.submit()">
+                                {% for day in days %}
+                                    <option value="{{ day }}" {% if day|stringformat:"s" == selected_end_day|stringformat:"s" %}selected{% endif %}>{{ day }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </form>                
+            </div>
+            <div class="row print-area">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header p-2 card_2">
+                            <ul class="nav nav-pills">
+                                <li class="nav-item">
+                                    <a class="nav-link active" href="#details" data-toggle="tab">DTR Details</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#print" data-toggle="tab">Summary</a>
+                                </li>
+                                <li class="nav-item ml-auto"> <!-- This will push the slider to the right -->
+                                    <label class="switch">
+                                        <input type="checkbox" id="toggleHighlightButton">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div class="card-body">
+                            <div class="tab-content">
+                                <div class="active tab-pane" id="details">
+                                    {% for member in members %}
+                                    <h4>Name: {{ member.first_name|default_if_none:""}} {{ member.middle_name|default_if_none:""}} {{ member.last_name|default_if_none:""}} {{ member.ext_name|default_if_none:"" }}</h4>
+                                        <table id="dtr-list-{{ member.id }}" class="table table-bordered table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th rowspan="2" style="text-align: center;">Date</th>
+                                                    <th rowspan="2" style="text-align: center;">Day</th>
+                                                    <th colspan="2" style="text-align: center;">In AM</th>
+                                                    <th colspan="2" style="text-align: center;">In PM</th>
+                                                    <th rowspan="2" style="text-align: center;">Total Time = {{ total_times|get_item:member.id|default_if_none:"N/A" }}</th>
+                                                    <th rowspan="2" style="text-align: center;">Undertime = {{ total_undertimes|get_item:member.id|default_if_none:"N/A" }}</th>
+                                                </tr>
+                                                <tr>
+                                                    <th style="text-align: center;">Time-in</th>
+                                                    <th style="text-align: center;">Time-out</th>
+                                                    <th style="text-align: center;">Time-in</th>
+                                                    <th style="text-align: center;">Time-out</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% include "attkeeper/dtr/dtr_list.html" %}
+                                            </tbody>
+                                        </table>
+                                        <br>
+                                        </br>
+                                    {% endfor %}
+                                </div>
+                                <div class="tab-pane" id="print">
+                                    <div class="row card_3">
+                                        <div class="col-3">
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <button onclick="window.print()" class="btn btn-primary float-right ml-4 print-button">Print</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-3">
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="paper">
+                                                <div class="header-container" style="display: flex; justify-content: space-between; align-items: center;">
+                                                    <h5>
+                                                        {{ current_year }} 
+                                                        {% for m in months %}
+                                                            {% if m.num == current_month %}
+                                                                {{ m.name }}
+                                                            {% endif %}
+                                                        {% endfor %} 
+                                                        {{ first_day }}-{{ last_day }}
+                                                    </h5>
+                                                    {% if preference and preference.logo %}
+                                                        <img src="{{ preference.logo.url }}" alt="Logo" style="max-width: 150px; max-height: 40px; opacity: .8;">
+                                                    {% else %}
+                                                        <img src="{% static 'path/to/default/logo.png' %}" alt="Default Logo" class="brand-image elevation-3" style="opacity: .8">
+                                                    {% endif %}
+                                                </div>
+                                                <br>
+                                                {% if selected_branch_id != "all" %}
+                                                    {% for branch in branches %}
+                                                    {% if branch.id|stringformat:"s" == selected_branch_id|stringformat:"s" %}
+                                                    <h5 class="table-header">{{branch.branch_name}}</h5>
+                                                    <table class="table table-bordered table-hover paper-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Name</th>
+                                                                <th style="text-align: center;">No. of Days On Duty</th>
+                                                                <th style="text-align: center;">Total Time</th>
+                                                                <th style="text-align: center;">Total Undertime</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for member in members %}
+                                                                {% if member.branch_id == branch.id %}
+                                                                <tr>
+                                                                    <td>{{ member.first_name|default_if_none:""}} {{ member.middle_name|default_if_none:""}} {{ member.last_name|default_if_none:""}} {{ member.ext_name|default_if_none:""}}</td>
+                                                                    <td style="text-align: center;">{{ days_on_duty|get_item:member.id|default_if_none:"N/A" }}</td>
+                                                                    <td style="text-align: center;">{{ total_times|get_item:member.id|default_if_none:"N/A" }}</td>
+                                                                    <td style="text-align: center;">{{ total_undertimes|get_item:member.id|default_if_none:"N/A" }}</td>
+                                                                </tr>
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                    <br>
+                                                    {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                {% for branch in branches %}
+                                                    <h5 class="table-header">{{branch.branch_name}}</h5>
+                                                    <table class="table table-bordered table-hover paper-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Name</th>
+                                                                <th style="text-align: center;">No. of Days On Duty</th>
+                                                                <th style="text-align: center;">Total Time</th>
+                                                                <th style="text-align: center;">Total Undertime</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for member in members %}
+                                                                {% if member.branch_id == branch.id %}
+                                                                <tr>
+                                                                    <td>{{ member.first_name|default_if_none:""}} {{ member.middle_name|default_if_none:""}} {{ member.last_name|default_if_none:""}} {{ member.ext_name|default_if_none:""}}</td>
+                                                                    <td style="text-align: center;">{{ days_on_duty|get_item:member.id|default_if_none:"N/A" }}</td>
+                                                                    <td style="text-align: center;">{{ total_times|get_item:member.id|default_if_none:"N/A" }}</td>
+                                                                    <td style="text-align: center;">{{ total_undertimes|get_item:member.id|default_if_none:"N/A" }}</td>
+                                                                </tr>
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                    <br>
+                                                {% endfor %}
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                                                
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="modal fade" id="new-dtr">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            </div>
+            
+        </div>
+    </div>
+
+    <div class="modal fade" id="progress-modal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>Generating, please wait...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal fade" id="timeSelectionModal" tabindex="-1" aria-labelledby="timeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="timeModalLabel">Edit Time</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-5">
+                            <label for="timeOptions" id="timeOptionsLabel">Time</label>
+                            <select id="timeOptions" class="form-control mb-2">
+                                <!-- Add options here -->
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <label for="timeInput" id="timeInputLabel">Or enter time:</label>
+                            <input type="text" id="timeInput" class="form-control" placeholder="HH:MM AM/PM">
+                        </div>
+                        <div class="col-2 d-flex align-items-end">
+                            <button type="button" class="btn btn-primary w-100 align-save-btn" id="saveTimeButton">Save</button>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-10 d-flex align-items-center">
+                            <p class="mb-0">Or do you want to remove current cell data?</p>
+                        </div>
+                        <div class="col-2 d-flex align-items-end">
+                            <button type="button" class="btn btn-danger w-100" id="removeTimeButton">Yes</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+                
+            </div>
+        </div>
+    </div>      
+</div>
+{% endblock content %}
+{% block extra_scripts %}
+<!-- DataTables  & Plugins -->
+<script src="{% static 'plugins/datatables/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-responsive/js/responsive.bootstrap4.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/dataTables.buttons.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.bootstrap4.min.js' %}"></script>
+<script src="{% static 'plugins/jszip/jszip.min.js' %}"></script>
+<script src="{% static 'plugins/pdfmake/pdfmake.min.js' %}"></script>
+<script src="{% static 'plugins/pdfmake/vfs_fonts.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.html5.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.print.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.colVis.min.js' %}"></script>
+<script src="/static/js/select2.min.js"></script>
+{% comment %} <script src="{% static '/js/bootstrap.min.js' %}"></script> {% endcomment %}
+<!-- Page specific script -->
+<script>
+    $(function() {
+        var loadForm = function() {
+            var btn = $(this);
+            $.ajax({
+                url: btn.attr('data-url'),
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function() {
+                    $('#new-dtr').modal('show');
+                },
+                success: function(data) {
+                    $('#new-dtr .modal-content').html(data.html_form);
+                }
+            });
+        };
+    
+        var saveForm = function() {
+            var form = $(this);
+            var formData = new FormData(form[0]);  // Use FormData for file upload
+            $.ajax({
+                url: form.attr('action'),
+                data: formData,
+                type: form.attr('method'),
+                dataType: 'json',
+                processData: false,  // Prevent jQuery from automatically transforming the data into a query string
+                contentType: false,  // Let the browser set the content type, including the boundary for multipart data
+                beforeSend: function() {
+                    $('#new-dtr').modal('hide');  // Hide the new-dtr modal
+                    $('#progress-modal').modal('show');  // Show the progress modal
+                },
+                success: function(data) {
+                    if (data.form_is_valid) {
+                        $('#dtr-list tbody').html(data.attendance_list);
+                    } else {
+                        $('#new-dtr .modal-content').html(data.html_form);
+                        $('#new-dtr').modal('show');  // Show the new-dtr modal again if the form is not valid
+                    }
+                    $('#progress-modal').modal('hide');  // Hide the progress modal
+                },
+                error: function() {
+                    $('#progress-modal').modal('hide');  // Hide the progress modal in case of an error
+                    $('#new-dtr').modal('show');  // Show the new-dtr modal again in case of an error
+                }
+            });
+            return false;
+        };
+    
+        // upload
+        $('.js-generate').click(loadForm);
+        $('#new-dtr').on('submit', '.js-generate-create-form', saveForm);
+        // delete all
+        $('.js-delete').click(loadForm);
+        $('#new-dtr').on('submit', '.js-delete_all-form', saveForm);
+    });
+    
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////data table
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    $(document).ready(function() {
+        $('table[id^="dtr-list-"]').each(function() {
+            var tableId = $(this).attr('id');
+            var table = $(this).DataTable({
+                "responsive": true,
+                "lengthChange": true,
+                "autoWidth": false,
+                "buttons": ["csv", "excel", "pdf", "print"]
+            });
+    
+            table.buttons().container().appendTo('#' + tableId + '_wrapper .col-md-6:eq(0)');
+        });
+    });
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////PRINT
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function togglePrintView(hide) {
+    const filter = document.querySelector('.filter');
+    const footer = document.querySelectorAll('.footer');
+    const card1 = document.querySelectorAll('.card_1');
+    const card2 = document.querySelectorAll('.card_2');
+    const card3 = document.querySelectorAll('.card_3');
+
+    if (hide) {
+        filter.style.display = 'none';
+        card1.forEach(element => element.style.display = 'none');
+        card2.forEach(element => element.style.display = 'none');
+        card3.forEach(element => element.style.display = 'none');
+        footer.forEach(element => element.style.display = 'none');
+    } else {
+        filter.style.display = '';
+        card1.forEach(element => element.style.display = '');
+        card2.forEach(element => element.style.display = '');
+        card3.forEach(element => element.style.display = '');
+        footer.forEach(element => element.style.display = '');
+    }
+}
+
+window.addEventListener('beforeprint', () => {
+    togglePrintView(true);
+});
+
+window.addEventListener('afterprint', () => {
+    location.reload();
+});
+
+document.querySelector('.print-button').addEventListener('click', () => {
+    window.print();
+});
+///////////PRINT////////////////////////////////////////////////////////////////////////////////////////////////////
+//  EDIT cell
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+$(document).ready(function() {
+    $('.content-wrapper').on('click', '.editable-cell', function() {
+        var cell = $(this);
+        var columnHeader = cell.closest('table').find('tr').eq(1).find('th').eq(cell.index() - 2).text();
+        $('.editable-cell').removeClass('highlighted');
+        cell.addClass('highlighted');
+
+        var date = cell.data('date');
+        var member_id = cell.data('member-id');
+        var time_type = cell.data('time-type');
+
+        $.ajax({
+            url: '{% url "fetch_available_times" %}',
+            data: { 'date': date, 'member_id': member_id },
+            success: function(response) {
+                if (response.success) {
+                    var select = $('#timeOptions');
+                    select.empty();
+                    response.times.forEach(function(time) {
+                        select.append($('<option></option>').text(time).val(time));
+                    });
+                    $('#timeOptionsLabel').text(columnHeader);
+                    $('#timeSelectionModal').modal('show');
+                } else {
+                    alert(response.error);
+                }
+            }
+        });
+
+        $('#saveTimeButton').off('click').on('click', function() {
+            var selected_time = $('#timeInput').val().trim() || $('#timeOptions').val();
+            cell.html(selected_time);
+            $('#timeSelectionModal').modal('hide');
+
+            $.ajax({
+                url: '{% url "update_attendance_time" %}',
+                method: 'POST',
+                data: {
+                    'date': date,
+                    'member_id': member_id,
+                    'time_type': time_type,
+                    'time': selected_time,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        cell.removeClass('highlighted');  // Remove highlight after saving
+                       // window.location.reload();  // Optionally reload the page
+                    } else {
+                        alert('Failed to update time: ' + response.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('AJAX error: ' + error);
+                }
+            });
+        });
+
+        $('#removeTimeButton').off('click').on('click', function() {
+            cell.html('');
+            $('#timeSelectionModal').modal('hide');
+
+            $.ajax({
+                url: '{% url "remove_attendance_time" %}',  // Update with the correct URL
+                method: 'POST',
+                data: {
+                    'date': date,
+                    'member_id': member_id,
+                    'time_type': time_type,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        cell.removeClass('highlighted');  // Remove highlight after removal
+                        //window.location.reload();  // Optionally reload the page
+                    } else {
+                        alert('Failed to remove time: ' + response.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('AJAX error: ' + error);
+                }
+            });
+        });
+    });
+
+    $('#timeSelectionModal').on('hidden.bs.modal', function() {
+        $('.highlighted').removeClass('highlighted');
+        $('#timeInput').val(''); // Clear the input field when the modal is closed
+    });
+});
+
+
+///////////PRINT////////////////////////////////////////////////////////////////////////////////////////////////////
+//  button highlight
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+$(document).ready(function() {
+    // Check the saved state in localStorage
+    if (localStorage.getItem('highlightToggle') === 'true') {
+        $('#toggleHighlightButton').prop('checked', true);
+        $('.highlight-empty').addClass('highlight-empty-active');
+    }
+
+    // Event listener for the toggle button
+    $('#toggleHighlightButton').change(function() {
+        if ($(this).is(':checked')) {
+            $('.highlight-empty').addClass('highlight-empty-active');
+            localStorage.setItem('highlightToggle', 'true');
+        } else {
+            $('.highlight-empty').removeClass('highlight-empty-active');
+            localStorage.setItem('highlightToggle', 'false');
+        }
+    });
+});
+</script>
+{% endblock extra_scripts %}

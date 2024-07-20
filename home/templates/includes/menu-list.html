@@ -1,0 +1,89 @@
+{% load i18n static admin_adminlte %}
+
+<ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+    <!-- Add icons to the links using the .nav-icon class
+           with font-awesome or any other icon font library -->
+
+    {% admin_get_menu as app_list %}
+    {% if app_list %}
+    {% for app in app_list %}
+    {% if app.has_perms and not app.pinned %}
+    <li class="nav-item {% if 'dashboard' in parent %} menu-open {% endif %}">
+      <a class="nav-link {% if app_label != app.label and app.url not in request.path|urlencode  %} collapsed{% endif %}"
+        data-bs-toggle="collapse" data-bs-target="#submenu-{{ app.app_label }}" href="{{ app.url }}">
+        <i class="nav-icon {{ app.icon }}"></i>
+        <p>
+          {{ app.label|slice:10 }}{% if app.label|length > 10 %}..{% endif %}
+          <i class="right fas fa-angle-left"></i>
+        </p>
+      </a>
+
+      {% if app.models %}
+      <ul class="nav nav-treeview">
+        {% for model in app.models %}
+        {% if model.url %}
+        <li class="nav-item">
+          <a class="nav-link {% if 'bootstrap-tables' in segment or model.url in request.path|urlencode %} active {% endif %}"
+            href="{{ model.url }}">
+            <i class="far fa-circle nav-icon"></i>
+            <p>{{ model.label }}</p>
+          </a>
+        </li>
+        {% else %}
+        <li class="nav-item">{{ model.label }}</li>
+        {% endif %}
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </li>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+
+    {% if request.user.is_superuser %}
+    {% endif %}
+
+    {% if request.user.is_staff %}
+    <li class="nav-item">
+      <a href="{% url "records" %}" class="nav-link {% if 'records' in segment %} active {% endif %}">
+        <i class="nav-icon fas fa-edit"></i>
+        <p>Biometric Data</p>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="{% url "dtr" %}" class="nav-link {% if 'dtr' in segment %} active {% endif %}">
+        <i class="nav-icon far fa-calendar-alt"></i>
+        <p>DTR Management</p>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="{% url "members" %}" class="nav-link {% if 'members' in segment %} active {% endif %}">
+        <i class="nav-icon far fa-calendar-alt"></i>
+        <p>Members</p>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="{% url "shifts" %}" class="nav-link {% if 'shifts' in segment %} active {% endif %}">
+        <i class="nav-icon far fa-calendar-alt"></i>
+        <p>Shifts</p>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a href="{% url "branch" %}" class="nav-link {% if 'branches' in segment %} active {% endif %}">
+        <i class="nav-icon far fa-calendar-alt"></i>
+        <p>Branch & Position</p>
+      </a>
+    </li>
+  
+    {% endif %}
+    
+    {% if request.user.is_authenticated %}
+    <li class="nav-item">
+      <a href="{% url "signout" %}" class="nav-link">
+        <i class="nav-icon fa fa-sign-out-alt"></i>
+        <p>Signout</p>
+      </a>
+    </li>
+    {% endif %}            
+    
+  </ul>

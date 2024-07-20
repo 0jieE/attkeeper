@@ -1,0 +1,264 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+{% block title %} Branch and Position{% endblock title %}
+{% block extrastyle %}
+<!-- DataTables -->
+<link rel="stylesheet" href="{% static 'plugins/datatables-bs4/css/dataTables.bootstrap4.min.css' %}">
+<link rel="stylesheet" href="{% static 'plugins/datatables-responsive/css/responsive.bootstrap4.min.css' %}">
+<link rel="stylesheet" href="{% static 'plugins/datatables-buttons/css/buttons.bootstrap4.min.css' %}">
+{% endblock extrastyle %}
+{% block bodyclass %} hold-transition sidebar-mini {% endblock bodyclass %}
+{% block content %}
+<div class="content-wrapper">
+    <!-- Content Header (Page header) -->
+    <section class="content-header">
+      <div class="container-fluid">
+        <div class="row mb-2">
+          <div class="col-sm-6">
+            <h1>Branch & Position List</h1>
+          </div>
+      </div><!-- /.container-fluid -->
+    </section>
+
+    <section class="content">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-6">
+                    <div class="card">
+                        <div class="card-header">
+        
+                          <button type="button" class="btn btn-sm btn-primary float-right  js-add-branch" data-toggle="modal" data-target="#new-branch" data-url="{% url "add_branch" %}">Add new</button>
+                        </div>
+                        <div class="card-body p-10">
+                          <table id="branch-list" class="table table-stripped table-hover table-sm">
+                              <thead>
+                                  <tr>
+                                    <th>Branch Name</th>
+                                    <th>Signatory</th>
+                                    <th>Action</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                {% include "attkeeper/branch/branch_list.html" %}
+                              </tbody>
+                          </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card">
+                        <div class="card-header">
+        
+                          <button type="button" class="btn btn-sm btn-primary float-right  js-add-position" data-toggle="modal" data-target="#new-position" data-url="{% url "add_position" %}">Add new</button>
+                        </div>
+                        <div class="card-body p-10">
+                          <table id="position-list" class="table table-stripped table-hover table-sm">
+                              <thead>
+                                  <tr>
+                                    <th>Position Name</th>
+                                    <th>Action</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                {% include "attkeeper/position/position_list.html" %}
+                              </tbody>
+                          </table>
+                        </div>
+                    </div>
+                </div>
+              </div>
+            </div>
+        </div>
+    </section>
+    <div class="modal fade" id="new-branch">
+        <div class="modal-dialog">
+          <div class="modal-content">
+          </div>
+          <!-- /.modal-content -->
+        </div>
+        <!-- /.modal-dialog -->
+    </div>
+    <div class="modal fade" id="new-position">
+        <div class="modal-dialog">
+          <div class="modal-content">
+          </div>
+          <!-- /.modal-content -->
+        </div>
+        <!-- /.modal-dialog -->
+    </div>
+</div>
+
+
+{% endblock content %}
+{% block extra_scripts %}
+<!-- DataTables  & Plugins -->
+<script src="{% static 'plugins/datatables/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-bs4/js/dataTables.bootstrap4.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-responsive/js/responsive.bootstrap4.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/dataTables.buttons.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.bootstrap4.min.js' %}"></script>
+<script src="{% static 'plugins/jszip/jszip.min.js' %}"></script>
+<script src="{% static 'plugins/pdfmake/pdfmake.min.js' %}"></script>
+<script src="{% static 'plugins/pdfmake/vfs_fonts.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.html5.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.print.min.js' %}"></script>
+<script src="{% static 'plugins/datatables-buttons/js/buttons.colVis.min.js' %}"></script>
+<!-- Page specific script -->
+
+
+
+
+<script>
+
+  $(function() 
+  {
+      var loadform = function() 
+        {
+          var btn = $(this);
+          console.log(btn.attr("data-url"));
+          $.ajax
+          ({
+            url: btn.attr('data-url'),
+            type: 'get',
+            dataType: 'json',
+            beforeSend: function()
+            {
+                $("#new-branch").modal("show");
+            },
+            success: function (data) {
+                $("#new-branch .modal-content").html(data.html_form);
+            }
+          });
+        };
+
+      var saveForm = function() 
+        {
+          var form = $(this);
+          $.ajax
+          ({
+            url: form.attr("action"),
+            data: form.serialize(),
+            type: form.attr("method"),
+            dataType: 'json',
+            success: function (data) 
+            {
+              if (data.form_is_valid) 
+              {
+                $("#branch-list tbody").html(data.branch_list);
+                $("#new-branch").modal("hide");
+              }
+              else 
+              {
+                $("#new-branch .modal-content").html(data.html_form);
+              }
+            }
+          });
+        return false;
+        }
+
+  //add branch
+  $(".js-add-branch").click(loadform);
+  $("#new-branch").on("submit",".js-branch-create-form", saveForm);
+  //edit branch
+  $("#branch-list").on("click", ".js-edit-branch", loadform);
+  $("#new-branch").on("submit", ".js-branch-edit-form", saveForm);
+  //delete branch
+  $("#branch-list").on("click", ".js-delete-branch", loadform);
+  $("#new-branch").on("submit", ".js-branch-delete-form", saveForm);
+
+
+  $(function () {
+    $("#branch-list").DataTable({
+      "responsive": true, "lengthChange": true, "autoWidth": false,
+      //"buttons": ["csv", "excel", "pdf", "print"]
+      // "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
+    }).buttons().container().appendTo('#branch-list_wrapper .col-md-6:eq(0)');
+    // $('#course_prospectus-list').DataTable({
+    //  "paging": true,
+    //  "lengthChange": false,
+    //  "searching": true,
+    //  "ordering": true,
+    //  "info": true,
+    //  "autoWidth": false,
+    //  "responsive": true,
+    // });
+  });
+});
+
+$(function() 
+  {
+      var positionForm = function() 
+        {
+          var btn = $(this);
+          console.log(btn.attr("data-url"));
+          $.ajax
+          ({
+            url: btn.attr('data-url'),
+            type: 'get',
+            dataType: 'json',
+            beforeSend: function()
+            {
+                $("#new-position").modal("show");
+            },
+            success: function (data) {
+                $("#new-position .modal-content").html(data.html_form);
+            }
+          });
+        };
+
+      var positionSave = function() 
+        {
+          var form = $(this);
+          $.ajax
+          ({
+            url: form.attr("action"),
+            data: form.serialize(),
+            type: form.attr("method"),
+            dataType: 'json',
+            success: function (data) 
+            {
+              if (data.form_is_valid) 
+              {
+                $("#position-list tbody").html(data.position_list);
+                $("#new-position").modal("hide");
+              }
+              else 
+              {
+                $("#new-position .modal-content").html(data.html_form);
+              }
+            }
+          });
+        return false;
+        }
+
+  //add position
+  $(".js-add-position").click(positionForm);
+  $("#new-position").on("submit",".js-position-create-form", positionSave);
+  //edit position
+  $("#position-list").on("click", ".js-edit-position", positionForm);
+  $("#new-position").on("submit", ".js-position-edit-form", positionSave);
+  //delete position
+  $("#position-list").on("click", ".js-delete-position", positionForm);
+  $("#new-position").on("submit", ".js-position-delete-form", positionSave);
+
+
+  $(function () {
+    $("#position-list").DataTable({
+      "responsive": true, "lengthChange": true, "autoWidth": false,
+      //"buttons": ["csv", "excel", "pdf", "print"]
+      // "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
+    }).buttons().container().appendTo('#position-list_wrapper .col-md-6:eq(0)');
+    // $('#course_prospectus-list').DataTable({
+    //  "paging": true,
+    //  "lengthChange": false,
+    //  "searching": true,
+    //  "ordering": true,
+    //  "info": true,
+    //  "autoWidth": false,
+    //  "responsive": true,
+    // });
+  });
+});
+</script>
+{% endblock extra_scripts %}

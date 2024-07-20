@@ -1,0 +1,19 @@
+{% for dtr in dtr %}
+    {% if dtr.member.id == member.id %}
+    <tr>
+        <td style="text-align: center;">{{ dtr.date|date:"j" }}</td>
+        <td style="text-align: center;">{{ dtr.days|default_if_none:"" }}</td>
+        <td class="editable-cell {% if not dtr.am_in and dtr.member.shift.period_type == 'Dual' %}
+            highlight-empty
+            {% elif not dtr.am_in and dtr.member.shift.period_type == 'Single' %}
+            highlight-empty
+            {% endif %}" data-date="{{ dtr.date|date:"F j, Y" }}" 
+            data-member-id="{{ member.id }}" data-time-type="am_in" style="text-align: center;">{{ dtr.am_in|default_if_none:"" }}</td>
+        <td class="editable-cell {% if not dtr.am_out and dtr.member.shift.period_type == 'Dual' %}highlight-empty{% endif %}" data-date="{{ dtr.date|date:"F j, Y" }}" data-member-id="{{ member.id }}" data-time-type="am_out" style="text-align: center;">{{ dtr.am_out|default_if_none:"" }}</td>
+        <td class="editable-cell {% if not dtr.pm_in and dtr.member.shift.period_type == 'Dual' %}highlight-empty{% endif %}" data-date="{{ dtr.date|date:"F j, Y" }}" data-member-id="{{ member.id }}" data-time-type="pm_in" style="text-align: center;">{{ dtr.pm_in|default_if_none:"" }}</td>
+        <td class="editable-cell {% if not dtr.pm_out %}highlight-empty{% endif %}" data-date="{{ dtr.date|date:"F j, Y" }}" data-member-id="{{ member.id }}" data-time-type="pm_out" style="text-align: center;">{{ dtr.pm_out|default_if_none:"" }}</td>
+        <td class="{% if dtr.total_time == '0:00' %}text-red {% else %}text-green{% endif %}" style="text-align: center;">{{ dtr.total_time|default_if_none:"" }}</td>
+        <td class="{% if dtr.total_under_time == '0:00' %}text-green{% else %}text-red{% endif %}" style="text-align: center;">{{ dtr.total_under_time|default_if_none:"" }}</td>
+    </tr>
+    {% endif %}
+{% endfor %}

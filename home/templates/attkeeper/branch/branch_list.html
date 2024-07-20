@@ -1,0 +1,14 @@
+{% for b in branches  %}
+    <tr>
+        <td>{{b.branch_name}}</td>
+        <td>{{b.signatory}}</td>
+        <td>
+            <button class="btn btn-primary btn-sm js-edit-branch" data-url="{% url "edit_branch" b.pk%}">
+                Edit
+            </button>
+            <button class="btn btn-sm btn-danger js-delete-branch" data-url="{% url "delete_branch" b.pk%}">
+                Delete
+            </button>
+        </td>
+    </tr>
+{% endfor %}

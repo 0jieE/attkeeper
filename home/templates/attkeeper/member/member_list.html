@@ -1,0 +1,20 @@
+{% for m in members %}
+    <tr>
+        <td>{{ m.biometric_id|default_if_none:"" }} </td>
+        <td>{{ m.first_name|default_if_none:"" }} </td>
+        <td>{{ m.middle_name|default_if_none:"" }} </td>
+        <td>{{ m.last_name|default_if_none:"" }} </td>
+        <td>{{ m.ext_name|default_if_none:"" }} </td>
+        <td>{{ m.address|default_if_none:"" }} </td>
+        <td>{{ m.contact_no|default_if_none:"" }} </td>
+        <td>{{ m.shift|default_if_none:"" }} </td>
+        <td>
+            <button class="btn btn-primary btn-sm js-edit-member" data-url="{% url "edit_member" m.pk%}">
+                Edit
+            </button>
+            <button class="btn btn-sm btn-danger js-delete-member" data-url="{% url "delete_member" m.pk%}">
+                Delete
+            </button>
+        </td>
+    </tr>
+{% endfor %}
